@@ -31,12 +31,12 @@ class UserCreate(BaseModel):
     @field_validator("full_name")
     @classmethod
     def full_name_allowlist(cls, v: str) -> str:
-        # Allow-list: лише літери, пробіл, апостроф, дефіс, крапка
         if not NAME_RE.match(v):
             raise ValueError("Ім'я може містити лише літери, пробіл, апостроф, дефіс")
         return v.strip()
 
 class UserResponse(BaseModel):
+    """Відповідь БЕЗ password_hash."""
     id: int
     username: str
     email: str
@@ -56,3 +56,25 @@ class LoginResponse(BaseModel):
     user_id: int
     username: str
     roles: list[str] = []
+
+# JWT (Етап 4)
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+class TokenRefreshRequest(BaseModel):
+    refresh_token: str
+
+class UserInfo(BaseModel):
+    id: int
+    username: str
+    email: str
+    full_name: str
+    roles: list[str]
+
+class GradeCreate(BaseModel):
+    student_id: int = Field(..., gt=0)
+    subject_id: int = Field(..., gt=0)
+    grade: int = Field(..., ge=0, le=100)  # 100-бальна шкала
+    comment: str | None = Field(None, max_length=500)
