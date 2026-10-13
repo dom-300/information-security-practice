@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field, field_validator
+from app.validators.sanitizer import sanitize_text
 
 NAME_RE = re.compile(r"^[A-Za-zА-Яа-яІіЇїЄєҐґ'\s\.\-]+$")
 
@@ -57,7 +58,7 @@ class LoginResponse(BaseModel):
     username: str
     roles: list[str] = []
 
-# JWT (Етап 4)
+# JWT
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
@@ -76,5 +77,11 @@ class UserInfo(BaseModel):
 class GradeCreate(BaseModel):
     student_id: int = Field(..., gt=0)
     subject_id: int = Field(..., gt=0)
-    grade: int = Field(..., ge=0, le=100)  # 100-бальна шкала
+    grade: int = Field(..., ge=0, le=100)
     comment: str | None = Field(None, max_length=500)
+
+    @field_validator("comment")
+    @classmethod
+    def clean_comment(cls, v: str | None) -> str | None:
+        # Санітизація проти Stored XSS: теги видаляються ДО збереження в БД
+        return sanitize_text(v) if v else v
