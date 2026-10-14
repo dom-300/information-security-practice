@@ -121,3 +121,39 @@ docker compose exec api python -m app.seed
 
 ### 05. Заголовки безпеки у відповіді /health
 ![Security Headers](docs/screenshots/05-headers.png)
+
+
+
+
+
+# Безпека
+
+## Інструкція запуску та розгортання
+
+Для початкового розгортання та ініціалізації системи виконайте регламентну послідовність кроків:
+
+1. Створення файлу конфігурації:
+   cp .env.example .env
+
+   У файлі .env обов'язково задайте згенеровані криптографічні ключі:
+   - JWT_SECRET_KEY: openssl rand -hex 32
+   - ENCRYPTION_KEY: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   - BLIND_INDEX_KEY: openssl rand -hex 32
+
+2. Генерація TLS-сертифіката для Nginx:
+   chmod +x scripts/*.sh
+   ./scripts/generate_cert.sh
+
+3. Збірка та запуск захищеного стека:
+   docker compose up -d --build
+
+4. Застосування міграцій бази даних:
+   docker compose exec api alembic upgrade head
+
+5. Наповнення бази даних тестовими даними:
+   docker compose exec api python -m app.seed
+
+Сервіс доступний за захищеною адресою: https://localhost (Nginx примусово перенаправляє HTTP-трафік з порту 80 на 443).
+
+---
+
