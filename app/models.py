@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float, ForeignKey,
+    Boolean, Column, DateTime, Float, ForeignKey, Index,
     Integer, String, Table, Text
 )
 from sqlalchemy.orm import relationship
@@ -28,7 +28,6 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
     
-    # PII шифрується Fernet; email_index — сліпий індекс (HMAC-SHA256)
     _encrypted_email = Column("encrypted_email", String(500), nullable=True)
     email_index = Column(String(64), unique=True, nullable=True, index=True)
     _encrypted_phone = Column("encrypted_phone", String(500), nullable=True)
@@ -47,7 +46,6 @@ class User(Base):
         foreign_keys="Grade.student_id"
     )
 
-    # Прозоре шифрування через property
     @property
     def email(self) -> str | None:
         return decrypt_field(self._encrypted_email)
@@ -121,3 +119,36 @@ class Grade(Base):
     student = relationship("User", back_populates="grades", foreign_keys=[student_id])
     subject = relationship("Subject", back_populates="grades")
     teacher = relationship("User", foreign_keys=[assigned_by])
+
+class AuditLog(Base):
+    """Журнал аудиту безпеки за правилом 5W."""
+    __tablename__ = "audit_log"
+
+    id = Column(Integer, primary_key=True)
+    # WHO
+    user_id = Column(Integer, nullable=True)
+    username = Column(String(50), nullable=True)
+    ip_address = Column(String(45), nullable=False)
+    # WHAT
+    action = Column(String(50), nullable=False)
+    resource = Column(String(100), nullable=True)
+    # WHEN (UTC)
+    timestamp = Column(
+        DateTime,
+        nullable=False,
+        index=True,
+        default=lambda: datetime.now(timezone.utc)
+    )
+    # WHERE
+    http_method = Column(String(10), nullable=True)
+    endpoint = Column(String(200), nullable=True)
+    # WHY/RESULT
+    status = Column(String(20), nullable=False)
+    status_code = Column(Integer, nullable=True)
+    details = Column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("ix_audit_action_ts", "action", "timestamp"),
+        Index("ix_audit_ip_action", "ip_address", "action"),
+        Index("ix_audit_user_ts", "user_id", "timestamp"),
+    )
