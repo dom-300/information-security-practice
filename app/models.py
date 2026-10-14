@@ -5,6 +5,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.crypto.encryption import encrypt_field, decrypt_field, blind_index
 
 # Зв'язкові таблиці M:N (RBAC)
 user_roles = Table(
@@ -26,9 +27,14 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
-    email = Column(String(100), unique=True, nullable=False, index=True)
+    
+    # PII шифрується Fernet; email_index — сліпий індекс (HMAC-SHA256)
+    _encrypted_email = Column("encrypted_email", String(500), nullable=True)
+    email_index = Column(String(64), unique=True, nullable=True, index=True)
+    _encrypted_phone = Column("encrypted_phone", String(500), nullable=True)
+    
     full_name = Column(String(150), nullable=False)
-    password_hash = Column(String(255), nullable=False)  # лише bcrypt-хеш!
+    password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
@@ -40,6 +46,24 @@ class User(Base):
         back_populates="student",
         foreign_keys="Grade.student_id"
     )
+
+    # Прозоре шифрування через property
+    @property
+    def email(self) -> str | None:
+        return decrypt_field(self._encrypted_email)
+
+    @email.setter
+    def email(self, value: str | None) -> None:
+        self._encrypted_email = encrypt_field(value)
+        self.email_index = blind_index(value) if value else None
+
+    @property
+    def phone(self) -> str | None:
+        return decrypt_field(self._encrypted_phone)
+
+    @phone.setter
+    def phone(self, value: str | None) -> None:
+        self._encrypted_phone = encrypt_field(value) if value else None
 
     def __repr__(self):
         return f"<User {self.username}>"
@@ -89,8 +113,8 @@ class Grade(Base):
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
-    grade = Column(Integer, nullable=False)  # 0-100
-    comment = Column(String(500), nullable=True)  # коментар викладача
+    grade = Column(Integer, nullable=False)
+    comment = Column(String(500), nullable=True)
     date_assigned = Column(DateTime, default=datetime.utcnow)
     assigned_by = Column(Integer, ForeignKey("users.id"), nullable=False)
 

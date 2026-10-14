@@ -7,6 +7,7 @@ from app.auth.jwt_handler import (
     create_refresh_token,
     verify_token,
 )
+from app.crypto.encryption import blind_index
 from app.database import get_db
 from app.middleware.rate_limiter import limiter
 from app.models import Role, User
@@ -30,7 +31,9 @@ def _primary_role(user: User) -> str:
 def register(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == user_data.username).first():
         raise HTTPException(status.HTTP_409_CONFLICT, "Username вже зайнятий")
-    if db.query(User).filter(User.email == user_data.email).first():
+    
+    # Пошук за сліпим індексом HMAC
+    if db.query(User).filter(User.email_index == blind_index(user_data.email)).first():
         raise HTTPException(status.HTTP_409_CONFLICT, "Email вже зареєстровано")
 
     new_user = User(

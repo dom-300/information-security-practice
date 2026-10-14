@@ -10,6 +10,8 @@ services:
     environment:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-only-secret-change-me}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:8000}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY не задано в .env}
+      BLIND_INDEX_KEY: ${BLIND_INDEX_KEY:?BLIND_INDEX_KEY не задано в .env}
     restart: unless-stopped
 
 volumes:
